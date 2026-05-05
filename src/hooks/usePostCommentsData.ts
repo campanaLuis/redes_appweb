@@ -1,52 +1,42 @@
 import { useQuery } from "@tanstack/react-query";
-import { externalSupabase } from "@/lib/externalSupabase";
+import { SocialComment } from "@/types/network";
 
 type Platform = 'twitter' | 'instagram' | 'facebook' | 'tiktok';
 
-const TABLE_MAP: Record<Platform, string> = {
-  twitter: 'Twitter_comentarios',
-  instagram: 'Instagram_comentarios',
-  facebook: 'Facebook_comentarios',
-  tiktok: 'TikTok_comentarios',
-};
+async function fetchCommentsForPost(platform: Platform, postId: string): Promise<SocialComment[]> {
+  try {
+    // Es posible que necesitemos usar encodeURIComponent si postId tiene caracteres raros
+    const url = `/api/chatbot/comentarios-de-post/${platform}/${encodeURIComponent(postId)}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Secret": "ch!3n4t0rS3cr3tK3y",
+      }
+    });
 
-export interface PostComment {
-  username: string;
-  comentario: string;
-  sentimiento: string;
-}
-
-async function fetchCommentsForPost(platform: Platform, postId: number): Promise<PostComment[]> {
-  const tableName = TABLE_MAP[platform];
-  const results: PostComment[] = [];
-  const pageSize = 1000;
-  let from = 0;
-
-  while (true) {
-    const { data, error } = await externalSupabase
-      .from(tableName)
-      .select('username, comentario, sentimiento')
-      .eq('post_id', postId)
-      .range(from, from + pageSize - 1);
-
-    if (error) {
-      console.error(`Error fetching comments for post ${postId}:`, error);
-      break;
+    if (!response.ok) {
+      console.error(`Error fetching comments for post ${postId}: API returned ${response.status}`);
+      return [];
     }
-    if (!data || data.length === 0) break;
-    results.push(...data);
-    if (data.length < pageSize) break;
-    from += pageSize;
-  }
 
-  return results;
+    const data = await response.json();
+    return data || [];
+  } catch (err) {
+    console.error(`Exception fetching comments for post ${postId}:`, err);
+    return [];
+  }
 }
 
-export function usePostCommentsData(platform: Platform | null, postId: number | null) {
+export function usePostCommentsData(platform: Platform | null, postId: string | null) {
   return useQuery({
     queryKey: ['post-comments', platform, postId],
-    queryFn: () => fetchCommentsForPost(platform!, postId!),
-    enabled: !!platform && postId !== null,
+    queryFn: () => {
+      if (!platform || !postId) return [];
+      // Cast postId to string to ensure compatibility with our new fetch
+      return fetchCommentsForPost(platform, String(postId));
+    },
+    enabled: !!platform && !!postId,
     staleTime: 5 * 60 * 1000,
   });
 }

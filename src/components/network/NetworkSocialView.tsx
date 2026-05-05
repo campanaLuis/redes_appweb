@@ -31,17 +31,39 @@ function normalizeUsername(username: string | null | undefined): string {
   return username.toLowerCase().replace('@', '').trim();
 }
 
-const ACTIVE_HOURS = 60;
-const RESULTS_HOURS = 84;
+// By-pass temporal super estricto para poder visualizar posteos en produccion
+const ACTIVE_HOURS = 60; //60
+const RESULTS_HOURS = 80; //80
 
 function getHoursSincePost(postedDate: string): number {
-  return (Date.now() - new Date(postedDate).getTime()) / (1000 * 60 * 60);
+  try {
+    // Reemplazamos espacio por T por si viene crudo de postgres
+    const safeDate = (postedDate || "").replace(' ', 'T');
+    const parsedTime = new Date(safeDate).getTime();
+    if (isNaN(parsedTime)) return 0; // Si falla, que no arruine las cuentas
+    return (Date.now() - parsedTime) / (1000 * 60 * 60);
+  } catch {
+    return 0;
+  }
 }
 
 function getPostStatus(postedDate: string): 'active' | 'results' | 'expired' {
   const hours = getHoursSincePost(postedDate);
+  
+  // 1. Lógica real de negocio: Si el post es reciente, cae donde corresponde
   if (hours <= ACTIVE_HOURS) return 'active';
-  if (hours <= RESULTS_HOURS) return 'results';
+  if (hours <= RESULTS_HOURS) return 'results'; //Si la diferencia de horas de la publicación es mayor a 80 horas, el post se va enteramente a expired (pestaña Participaciones).
+
+  // 2. HACK DE PRUEBA: Si el post es más viejo, en vez de mandarlo todo a expired,
+  // lo repartimos entre las 3 pestañas (Activos, Resultados, y Participaciones) para poder probar la UI.
+  // IMPORTANTE: Borrar este bloque cuando pases a producción definitiva con posts reales.
+  // const charSum = postedDate.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+  // const modulo = charSum % 3;
+  
+  // if (modulo === 0) return 'active';
+  // if (modulo === 1) return 'results';
+  
+  // El resto (modulo === 2) va a 'expired' (pestaña Participaciones)
   return 'expired';
 }
 
@@ -399,17 +421,26 @@ export function NetworkSocialView({ rootMember, allNetworkMembers, commentsData 
 
   // Split posts into active (≤60h), results (61-120h), and expired (>120h)
   const { activePosts, resultsPosts, expiredPosts } = useMemo(() => {
-    if (!posts) return { activePosts: [], resultsPosts: [], expiredPosts: [] };
-    const relevantPosts = posts.filter(p => new Date(p.posted_date) >= userJoinDate);
+    if (!posts || posts.length === 0) {
+      console.log("[DEBUG REACT] Posts vacíos o nulos al inicializar useMemo");
+      return { activePosts: [], resultsPosts: [], expiredPosts: [] };
+    }
+    
+    console.log(`[DEBUG REACT] Evaluando ${posts.length} posts en total para repartir en pestañas`);
+    
     const active: SocialPost[] = [];
     const results: SocialPost[] = [];
     const expired: SocialPost[] = [];
-    for (const p of relevantPosts) {
+    
+    for (const p of posts) {
       const status = getPostStatus(p.posted_date);
       if (status === 'active') active.push(p);
       else if (status === 'results') results.push(p);
       else expired.push(p);
     }
+    
+    console.log(`[DEBUG REACT] Reparto: Activos(${active.length}), Resultados(${results.length}), Expirados(${expired.length})`);
+    
     return { activePosts: active, resultsPosts: results, expiredPosts: expired };
   }, [posts, userJoinDate]);
 

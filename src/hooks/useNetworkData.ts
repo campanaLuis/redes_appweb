@@ -27,19 +27,28 @@ function buildTree(
     }));
 }
 
-// Fetch all members from edge function
+// Fetch all members from the local NodeJS backend via relative path
 async function fetchAllMembers(): Promise<NetworkMember[]> {
-  const { data, error } = await supabase.functions.invoke('fetch-network-data');
-  
-  if (error) {
+  try {
+    const response = await fetch("/api/chatbot/todas-las-personas", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        // En producción real, este secreto no debería estar hardcodeado en el frontend
+        // pero para bypass local/proxy es la manera de acceder.
+        "X-Internal-Secret": "ch!3n4t0rS3cr3tK3y",
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return (data as NetworkMember[]) || [];
+  } catch (error: any) {
     throw new Error(error.message);
   }
-  
-  if (data?.error) {
-    throw new Error(data.error);
-  }
-  
-  return (data as NetworkMember[]) || [];
 }
 
 // Hook for searching by user ID (used in admin/search page)
@@ -148,9 +157,11 @@ export function useNetworkDataByHash(hashCode: string | null): UseNetworkDataRes
         }
 
         // Find all descendants using path prefix
-        const descendants = allMembers.filter((m) => 
-          m.path.startsWith(`${user.path}.`)
-        );
+        const descendants = allMembers.filter((m) => {
+          // Aseguramos que tanto el path del miembro evaluado como el del usuario actual existan
+          if (!m.path || !user.path) return false;
+          return m.path.startsWith(`${user.path}.`);
+        });
         
         setAllMembers(allMembers);
         setGlobalTotal(allMembers.length);

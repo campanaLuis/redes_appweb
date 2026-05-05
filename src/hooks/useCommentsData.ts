@@ -1,15 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { externalSupabase } from "@/lib/externalSupabase";
 import { NetworkMember, UserCommentsSummary, CommentsDataMap } from "@/types/network";
 
 type Platform = 'twitter' | 'instagram' | 'facebook' | 'tiktok';
-
-const TABLE_MAP: Record<Platform, string> = {
-  twitter: 'Twitter_comentarios',
-  instagram: 'Instagram_comentarios',
-  facebook: 'Facebook_comentarios',
-  tiktok: 'TikTok_comentarios',
-};
 
 function normalizeUsername(username: string | null | undefined): string {
   if (!username) return '';
@@ -19,39 +11,39 @@ function normalizeUsername(username: string | null | undefined): string {
 async function fetchAllCommentsForPlatform(
   platform: Platform
 ): Promise<{ username: string; sentimiento: string }[]> {
-  const tableName = TABLE_MAP[platform];
-  const results: { username: string; sentimiento: string }[] = [];
-  const pageSize = 1000;
-  let from = 0;
+  try {
+    const response = await fetch(`/api/chatbot/comentarios/${platform}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Secret": "ch!3n4t0rS3cr3tK3y",
+      }
+    });
 
-  while (true) {
-    const { data, error } = await externalSupabase
-      .from(tableName)
-      .select('username, sentimiento')
-      .range(from, from + pageSize - 1);
-
-    if (error) {
-      console.error(`Error fetching ${platform} comments:`, error);
-      break;
+    if (!response.ok) {
+      console.error(`Error fetching ${platform} comments: API returned ${response.status}`);
+      return [];
     }
-    if (!data || data.length === 0) break;
-    results.push(...data);
-    if (data.length < pageSize) break;
-    from += pageSize;
-  }
 
-  return results;
+    const data = await response.json();
+    return data || [];
+  } catch (error) {
+    console.error(`Error fetching ${platform} comments:`, error);
+    return [];
+  }
 }
 
 function buildUsernameMap(members: NetworkMember[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const member of members) {
     const memberId = String(member.id);
+    // IMPORTANTE: En Supabase los campos se llamaban _username, pero la base de datos de 
+    // Postgres (y la API) los devuelve como _handle. Hay que leer _handle y hacer fallback a _username.
     const handles = [
-      member.facebook_username,
-      member.instagram_username,
-      member.twitter_username,
-      member.tiktok_username,
+      (member as any).facebook_handle || member.facebook_username,
+      (member as any).instagram_handle || member.instagram_username,
+      (member as any).twitter_handle || member.twitter_username,
+      (member as any).tiktok_handle || member.tiktok_username,
     ];
     for (const handle of handles) {
       const normalized = normalizeUsername(handle);
@@ -107,7 +99,7 @@ export function useCommentsData(members: NetworkMember[]) {
     queryFn: async () => {
       const platforms: Platform[] = ['twitter', 'instagram', 'facebook', 'tiktok'];
 
-      // Fetch all comments from all platforms in parallel
+      // Fetch all comments from all platforms in parallel via our local NodeJS API
       const results = await Promise.all(
         platforms.map(async (platform) => ({
           platform,
