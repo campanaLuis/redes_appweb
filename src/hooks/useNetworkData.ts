@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { NetworkMember, NetworkMemberWithChildren, NetworkTree, NetworkSibling } from "@/types/network";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 interface UseNetworkDataResult {
   tree: NetworkTree | null;
@@ -30,7 +31,7 @@ function buildTree(
 // Fetch all members from the local NodeJS backend via relative path
 async function fetchAllMembers(): Promise<NetworkMember[]> {
   try {
-    const response = await fetch("/api/chatbot/todas-las-personas", {
+    const response = await fetch(`${API_BASE}/api/chatbot/todas-las-personas`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
