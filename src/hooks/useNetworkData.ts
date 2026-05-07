@@ -37,7 +37,6 @@ async function fetchAllMembers(): Promise<NetworkMember[]> {
         "Content-Type": "application/json",
         // En producción real, este secreto no debería estar hardcodeado en el frontend
         // pero para bypass local/proxy es la manera de acceder.
-        "X-Internal-Secret": "ch!3n4t0rS3cr3tK3y",
       }
     });
 

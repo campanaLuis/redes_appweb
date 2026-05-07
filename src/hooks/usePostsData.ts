@@ -20,7 +20,6 @@ async function fetchPostsForPlatform(platform: Platform): Promise<SocialPost[]> 
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        "X-Internal-Secret": "ch!3n4t0rS3cr3tK3y",
       }
     });
 
