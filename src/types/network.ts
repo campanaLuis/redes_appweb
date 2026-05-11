@@ -7,6 +7,11 @@ export interface NetworkMember {
   colonia: string | null;
   selfie_url: string | null;
   hash_code: string | null;
+  // La API devuelve _handle; _username se mantiene como fallback por compatibilidad
+  twitter_handle: string | null;
+  instagram_handle: string | null;
+  facebook_handle: string | null;
+  tiktok_handle: string | null;
   twitter_username: string | null;
   instagram_username: string | null;
   facebook_username: string | null;

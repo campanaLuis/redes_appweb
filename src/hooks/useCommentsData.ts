@@ -36,13 +36,11 @@ function buildUsernameMap(members: NetworkMember[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const member of members) {
     const memberId = String(member.id);
-    // IMPORTANTE: En Supabase los campos se llamaban _username, pero la base de datos de 
-    // Postgres (y la API) los devuelve como _handle. Hay que leer _handle y hacer fallback a _username.
     const handles = [
-      (member as any).facebook_handle || member.facebook_username,
-      (member as any).instagram_handle || member.instagram_username,
-      (member as any).twitter_handle || member.twitter_username,
-      (member as any).tiktok_handle || member.tiktok_username,
+      member.facebook_handle || member.facebook_username,
+      member.instagram_handle || member.instagram_username,
+      member.twitter_handle || member.twitter_username,
+      member.tiktok_handle || member.tiktok_username,
     ];
     for (const handle of handles) {
       const normalized = normalizeUsername(handle);
