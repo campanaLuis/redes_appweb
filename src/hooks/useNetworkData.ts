@@ -33,9 +33,9 @@ async function fetchAllMembers(): Promise<NetworkMember[]> {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        // En producción real, este secreto no debería estar hardcodeado en el frontend
-        // pero para bypass local/proxy es la manera de acceder.
-      }
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+      },
     });
 
     if (!response.ok) {
